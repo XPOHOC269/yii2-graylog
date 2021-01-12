@@ -132,7 +132,7 @@ class GraylogTarget extends Target
             $gelfMsg->setAdditional('traceId', $traceId);
 
             $parts = explode('.', sprintf('%F', $timestamp));
-            $dateTime = date('Y-m-d H:i:s', $parts[0]) . '.' . $parts[1];
+            $dateTime = date('Y-m-d H:i:s', (int)$parts[0]) . '.' . $parts[1];
 
             $addText = "$dateTime [$ip][$userId][$sessionId][$levelName][$category][$requestId][$requestUri] [$transactionId]";
             $gelfMsg->setShortMessage("{$addText} {$text}");
