@@ -12,6 +12,7 @@
             "homepage": "https://github.com/xpohoc269"
         }
     ],
+    "minimum-stability": "dev",
     "version": "1.0.0",
     "require": {
         "yiisoft/yii2": "*",
