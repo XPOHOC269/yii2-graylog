@@ -1,32 +1,28 @@
-Graylog2 log target for Yii2
+Graylog log target for Yii2
 ============================
 
-Credits
--------
-Benjamin Zikarsky https://github.com/bzikarsky/gelf-php
-
-Installation
+Установка
 ------------
-The preferred way to install this extension is through [composer](http://getcomposer.org/download/).
+Предпочитаемый способ установки через [composer](http://getcomposer.org/download/).
 
-Either run
+Запустить
 
 ```
-php composer.phar require "nex/yii2-graylog2" "*"
+php composer.phar require "emenshov/yii2-graylog" "*"
 ```
 
-or add
+или добавьте
 
 ```json
-"nex/yii2-graylog2" : "*"
+"emenshov/yii2-graylog" : "*"
 ```
 
-to the `require` section of your application's `composer.json` file.
+в `require` секцию вашего `composer.json`
 
-Usage
+Использование
 -----
 
-Add Graylog target to your log component config:
+Добавьте GraylogTarget в ваш конфиг:
 ```php
 <?php
 return [
@@ -40,18 +36,11 @@ return [
                     'levels' => ['error', 'warning'],
                 ],
                 'graylog' => [
-                    'class' => 'nex\graylog\GraylogTarget',
+                    'class' => 'emenshov\graylog\GraylogTarget',
                     'levels' => ['error', 'warning', 'info'],
                     'categories' => ['application'],
                     'logVars' => [], // This prevent yii2-debug from crashing ;)
                     'host' => '127.0.0.1',
-                    'facility' => 'facility-name',
-                    'additionalFields' => [
-                        'user-ip' => function($yii) {
-                            return $yii->request->getUserIP();
-                        },
-                        'tag' => 'tag-name'
-                    ]
                 ],
             ],
         ],

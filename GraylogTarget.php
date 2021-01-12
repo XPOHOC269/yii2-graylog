@@ -1,27 +1,28 @@
 <?php
-/**
- * @copyright Copyright (c) 2014 Roman Ovchinnikov
- * @link https://github.com/RomeroMsk
- * @version 1.0.1
- */
-namespace nex\graylog;
+declare(strict_types=1);
 
-use Yii;
-use yii\helpers\ArrayHelper;
-use yii\helpers\VarDumper;
-use yii\log\Target;
-use yii\log\Logger;
+namespace emenshov\graylog;
+
 use Gelf;
 use Psr\Log\LogLevel;
+use Yii;
+use yii\base\InvalidConfigException;
+use yii\helpers\ArrayHelper;
+use yii\helpers\VarDumper;
+use yii\log\Logger;
+use yii\log\Target;
+use yii\web\Request;
 
 /**
- * GraylogTarget sends log to Graylog2 (in GELF format)
- *
- * @author Roman Ovchinnikov <nex.software@gmail.com>
- * @link https://github.com/RomeroMsk/yii2-graylog2
+ * Class GraylogTarget
+ * @package emenshov\graylog
  */
 class GraylogTarget extends Target
 {
+    private $logStep = 0;
+    private $req = '';
+    public $source = '';
+
     /**
      * @var string Graylog2 host
      */
@@ -56,13 +57,21 @@ class GraylogTarget extends Target
      * @var array graylog levels
      */
     private $_levels = [
-        Logger::LEVEL_TRACE => LogLevel::DEBUG,
+        Logger::LEVEL_TRACE         => LogLevel::DEBUG,
         Logger::LEVEL_PROFILE_BEGIN => LogLevel::DEBUG,
-        Logger::LEVEL_PROFILE_END => LogLevel::DEBUG,
-        Logger::LEVEL_INFO => LogLevel::INFO,
-        Logger::LEVEL_WARNING => LogLevel::WARNING,
-        Logger::LEVEL_ERROR => LogLevel::ERROR,
+        Logger::LEVEL_PROFILE_END   => LogLevel::DEBUG,
+        Logger::LEVEL_INFO          => LogLevel::INFO,
+        Logger::LEVEL_WARNING       => LogLevel::WARNING,
+        Logger::LEVEL_ERROR         => LogLevel::ERROR,
     ];
+
+    public function __construct($config = [])
+    {
+        parent::__construct($config);
+        if (!$this->source) {
+            throw new InvalidConfigException('graylog source not set');
+        }
+    }
 
     /**
      * Sends log messages to Graylog2 input
@@ -72,86 +81,182 @@ class GraylogTarget extends Target
         $transport = new Gelf\Transport\UdpTransport($this->host, $this->port, $this->chunkSize);
         $publisher = new Gelf\Publisher($transport);
         foreach ($this->messages as $message) {
-            list($text, $level, $category, $timestamp) = $message;
-            $gelfMsg = new Gelf\Message;
-            // Set base parameters
-            $gelfMsg->setLevel(ArrayHelper::getValue($this->_levels, $level, LogLevel::INFO))
-                ->setTimestamp($timestamp)
-                ->setFacility($this->facility)
-                ->setAdditional('category', $category)
-                ->setFile('unknown')
-                ->setLine(0);
-            // For string log message set only shortMessage
-            if (is_string($text)) {
-                $gelfMsg->setShortMessage($text);
-            } elseif ($text instanceof \Exception) {
-                $gelfMsg->setShortMessage('Exception ' . get_class($text) . ': ' . $text->getMessage());
-                $gelfMsg->setFullMessage((string) $text);
-                $gelfMsg->setLine($text->getLine());
-                $gelfMsg->setFile($text->getFile());
-            } else {
-                // If log message contains special keys 'short', 'full' or 'add', will use them as shortMessage, fullMessage and additionals respectively
-                $short = ArrayHelper::remove($text, 'short');
-                $full = ArrayHelper::remove($text, 'full');
-                $add = ArrayHelper::remove($text, 'add');
-                // If 'short' is set
-                if ($short !== null) {
-                    $gelfMsg->setShortMessage($short);
-                    // All remaining message is fullMessage by default
-                    $gelfMsg->setFullMessage(VarDumper::dumpAsString($text));
+            $gelfMsg = new Gelf\Message();
+            [$text, $level, $category, $timestamp] = $message;
+            unset($message);
+            if (!is_string($text)) {
+                // exceptions may not be serializable if in the call stack somewhere is a Closure
+                if ($text instanceof \Exception) {
+                    $text = 'Exception: ' . ((string)$text);
+                } elseif (is_array($text) && isset($text['add'], $text['message']) && is_array($text['add'])) {
+                    foreach ($text['add'] as $k => $v) {
+                        $gelfMsg->setAdditional($k, $v);
+                    }
+                    $text = $text['message'];
                 } else {
-                    // Will use log message as shortMessage by default (no need to add fullMessage in this case)
-                    $gelfMsg->setShortMessage(VarDumper::dumpAsString($text));
-                }
-                // If 'full' is set will use it as fullMessage (note that all other stuff in log message will not be logged, except 'short' and 'add')
-                if ($full !== null) {
-                    $gelfMsg->setFullMessage(VarDumper::dumpAsString($full));
-                }
-                // Process additionals array (only with string keys)
-                if (is_array($add)) {
-                    foreach ($add as $key => $val) {
-                        if (is_string($key)) {
-                            if (!is_string($val)) {
-                                $val = VarDumper::dumpAsString($val);
-                            }
-                            $gelfMsg->setAdditional($key, $val);
-                        }
-                    }
+                    $text = VarDumper::export($text);
                 }
             }
-            // Set 'file', 'line' and additional 'trace', if log message contains traces array
-            if (isset($message[4]) && is_array($message[4])) {
-                $traces = [];
-                foreach ($message[4] as $index => $trace) {
-                    $traces[] = "{$trace['file']}:{$trace['line']}";
-                    if ($index === 0) {
-                        $gelfMsg->setFile($trace['file']);
-                        $gelfMsg->setLine($trace['line']);
-                    }
-                }
-                $gelfMsg->setAdditional('trace', implode("\n", $traces));
+
+            $ip = $this->getIp();
+            $userId = $this->getUserID();
+            $sessionId = $this->getSessionID();
+            $levelName = Logger::getLevelName($level);
+            $requestId = $this->getRequestId();
+            $requestUri = $this->getRequestUri();
+            $traceId = $this->getTraceId();
+            $transactionId = $this->getTransactionId();
+
+            $gelfMsg->setVersion('1.1');
+            $gelfMsg->setLevel(ArrayHelper::getValue($this->_levels, $level, LogLevel::INFO));
+            $gelfMsg->setHost($this->source);
+
+            ++$this->logStep;
+            $logStep = $this->logStep;
+            if (strpos($text, 'end proceed transaction') !== false) {
+                $this->logStep = 0;
+                $this->req = '';
             }
-            // Add username
-            if (($this->addUsername) && (Yii::$app->has('user')) && ($user = Yii::$app->get('user')) && ($identity = $user->getIdentity(false))) {
-                $gelfMsg->setAdditional('username', $identity->username);
-            }
-            // Add any additional fields the user specifies
-            foreach ($this->additionalFields as $key => $value) {
-                if (is_string($key) && !empty($key)) {
-                    if (is_callable($value)) {
-                        $value = $value(Yii::$app);
-                    }
-                    if (!is_string($value) && !empty($value)) {
-                        $value = VarDumper::dumpAsString($value);
-                    }
-                    if (empty($value)) {
-                        continue;
-                    }
-                    $gelfMsg->setAdditional($key, $value);
-                }
-            }
+
+            $gelfMsg->setTimestamp($timestamp);
+            $gelfMsg->setAdditional('logStep', $logStep);
+            $gelfMsg->setAdditional('ip', $ip);
+            $gelfMsg->setAdditional('userID', $userId);
+            $gelfMsg->setAdditional('sessionID', $sessionId);
+            $gelfMsg->setAdditional('levelName', $levelName);
+            $gelfMsg->setAdditional('category', $category);
+            $gelfMsg->setAdditional('requestID', $requestId);
+            $gelfMsg->setAdditional('requestURI', $requestUri);
+            $gelfMsg->setAdditional('transactionID', $transactionId);
+            $gelfMsg->setAdditional('microtime', str_replace('.', '', $timestamp));
+            $gelfMsg->setAdditional('traceId', $traceId);
+
+            $parts = explode('.', sprintf('%F', $timestamp));
+            $dateTime = date('Y-m-d H:i:s', $parts[0]) . '.' . $parts[1];
+
+            $addText = "$dateTime [$ip][$userId][$sessionId][$levelName][$category][$requestId][$requestUri] [$transactionId]";
+            $gelfMsg->setShortMessage("{$addText} {$text}");
+            $gelfMsg->setFullMessage("{$addText} {$text}");
+
+
             // Publish message
             $publisher->publish($gelfMsg);
         }
+    }
+
+    private function getIp()
+    {
+        if (Yii::$app === null) {
+            return '';
+        }
+
+        $request = Yii::$app->getRequest();
+
+        return $request instanceof Request ? $request->getUserIP() : '-';
+    }
+
+    private function getUserID()
+    {
+        if (Yii::$app === null) {
+            return '';
+        }
+        /* @var $user \yii\web\User */
+        $user = Yii::$app->has('user', true) ? Yii::$app->get('user') : null;
+        if ($user && ($identity = $user->getIdentity(false))) {
+            $userID = $identity->getId();
+        } else {
+            $userID = '-';
+        }
+
+        return $userID;
+    }
+
+    private function getSessionID()
+    {
+        if (Yii::$app === null) {
+            return '';
+        }
+
+        /* @var $session \yii\web\Session */
+        $session = Yii::$app->has('session', true) ? Yii::$app->get('session') : null;
+
+        return $session && $session->getIsActive() ? $session->getId() : '-';
+    }
+
+    protected function getRequestId()
+    {
+        if (\Yii::$app === null) {
+            return '';
+        }
+
+        try {
+            if (!$this->req) {
+                if (isset($_SERVER['REQUEST_ID'])) {
+                    $this->req = $_SERVER['REQUEST_ID'];
+                } else {
+                    $this->req = uniqid('request_id_', true);
+                }
+            }
+        } catch (\Exception $e) {
+        }
+
+        return $this->req;
+    }
+
+    protected function getRequestUri()
+    {
+        if (\Yii::$app === null) {
+            return '';
+        }
+        $uri = '-';
+
+        try {
+            /** @var \yii\console\Request $request */
+            $request = \Yii::$app->getRequest();
+            if ($request instanceof \yii\web\Request) {
+                $uri = \Yii::$app->request->getUrl();
+            }
+            if ($request instanceof \yii\console\Request) {
+                $uri = \Yii::$app->request->getParams();
+                $uri = '/' . implode('?', $uri);
+            }
+        } catch (\Exception $e) {
+        }
+
+        return $uri;
+    }
+
+    protected function getTransactionId()
+    {
+        $transactionId = '-';
+        try {
+            $transactionId = \Yii::$app->Paybox->transId ?: '-';
+        } catch (\Exception $e) {
+        }
+
+        return $transactionId;
+    }
+
+    private function getTraceId()
+    {
+        if (\Yii::$app === null) {
+            return '-';
+        }
+        $traceId = '-';
+
+        try {
+            /** @var \yii\base\Request $request */
+            $request = \Yii::$app->getRequest();
+            if ($request instanceof \yii\console\Request) {
+                return '-';
+            }
+            if ($request instanceof \yii\web\Request) {
+                $traceId = \Yii::$app->request->get('traceId', '-');
+            }
+
+        } catch (\Exception $e) {
+        }
+
+        return $traceId;
     }
 }

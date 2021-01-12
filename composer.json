@@ -1,15 +1,15 @@
 {
-    "name": "nex/yii2-graylog2",
+    "name": "emenshov/yii2-graylog",
     "type": "yii2-extension",
-    "description": "Graylog2 log target for Yii2",
-    "keywords": ["yii2", "extension", "log", "log target", "graylog", "graylog2", "gelf"],
-    "homepage": "https://github.com/RomeroMsk/yii2-graylog2",
-    "license": "BSD-3-Clause",
+    "description": "Graylog log target for Yii2",
+    "keywords": ["yii2", "extension", "log", "log target", "graylog", "graylog", "gelf"],
+    "homepage": "https://github.com/emenshov/yii2-graylog",
+    "license": "MIT",
     "authors": [
         {
-            "name": "Roman Ovchinnikov",
-            "email": "nex.software@gmail.com",
-            "homepage": "https://github.com/RomeroMsk"
+            "name": "Evgeny Menshov",
+            "email": "menshov2699@gmail.com",
+            "homepage": "https://github.com/emenshov"
         }
     ],
     "require": {
@@ -18,7 +18,7 @@
     },
     "autoload": {
         "psr-4": {
-            "nex\\graylog\\": ""
+            "emenshov\\graylog\\": ""
         }
     }
 }
