@@ -1,15 +1,15 @@
 {
-    "name": "emenshov/yii2-graylog",
+    "name": "XPOHOC269/yii2-graylog",
     "type": "yii2-extension",
     "description": "Graylog log target for Yii2",
     "keywords": ["yii2", "extension", "log", "log target", "graylog", "graylog", "gelf"],
-    "homepage": "https://github.com/emenshov/yii2-graylog",
+    "homepage": "https://github.com/XPOHOC269/yii2-graylog",
     "license": "MIT",
     "authors": [
         {
             "name": "Evgeny Menshov",
             "email": "menshov2699@gmail.com",
-            "homepage": "https://github.com/emenshov"
+            "homepage": "https://github.com/XPOHOC269"
         }
     ],
     "require": {
@@ -18,7 +18,7 @@
     },
     "autoload": {
         "psr-4": {
-            "emenshov\\graylog\\": ""
+            "XPOHOC269\\graylog\\": ""
         }
     }
 }

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace emenshov\graylog;
+namespace XPOHOC269\graylog;
 
 use Gelf;
 use Psr\Log\LogLevel;
@@ -15,7 +15,7 @@ use yii\web\Request;
 
 /**
  * Class GraylogTarget
- * @package emenshov\graylog
+ * @package XPOHOC269\graylog
  */
 class GraylogTarget extends Target
 {
