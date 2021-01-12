@@ -12,6 +12,7 @@
             "homepage": "https://github.com/xpohoc269"
         }
     ],
+    "version": "1.0.0",
     "require": {
         "yiisoft/yii2": "*",
         "graylog2/gelf-php": "~1.0"
