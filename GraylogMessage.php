@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace XPOHOC269\graylog;
+namespace xpohoc269\graylog;
 
 /**
  * Class GraylogMessage

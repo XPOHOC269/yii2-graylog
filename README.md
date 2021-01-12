@@ -8,13 +8,13 @@ Graylog log target for Yii2
 Запустить
 
 ```
-php composer.phar require "XPOHOC269/yii2-graylog" "*"
+php composer.phar require "xpohoc269/yii2-graylog" "*"
 ```
 
 или добавьте
 
 ```json
-"XPOHOC269/yii2-graylog" : "*"
+"xpohoc269/yii2-graylog" : "*"
 ```
 
 в `require` секцию вашего `composer.json`
@@ -36,7 +36,7 @@ return [
                     'levels' => ['error', 'warning'],
                 ],
                 'graylog' => [
-                    'class' => 'XPOHOC269\graylog\GraylogTarget',
+                    'class' => 'xpohoc269\graylog\GraylogTarget',
                     'levels' => ['error', 'warning', 'info'],
                     'categories' => ['application'],
                     'logVars' => [], // This prevent yii2-debug from crashing ;)
